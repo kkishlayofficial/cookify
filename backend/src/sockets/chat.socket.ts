@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
-import cookie from "cookie";
+import { parseCookie } from "cookie";
 import { env } from "@/config/env";
 import { verifyAccessToken } from "@/lib/jwt";
 import * as chatService from "@/modules/chat/chat.service";
@@ -15,7 +15,7 @@ export function attachChatSocket(httpServer: HttpServer) {
   io.use((socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie;
-      const parsed = cookieHeader ? cookie.parse(cookieHeader) : {};
+      const parsed = cookieHeader ? parseCookie(cookieHeader) : {};
       const token = parsed.accessToken ?? (socket.handshake.auth?.token as string | undefined);
       if (!token) throw new Error("No access token provided");
 

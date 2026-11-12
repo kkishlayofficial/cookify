@@ -84,23 +84,26 @@ Status legend: ✅ Built · 🟡 Partial · ⬜ Pending
 | Ban system (3 warnings) | ✅ | Soft-removes the user's recipes/comments from public view, revokes all sessions |
 | Admin manual ban | ✅ | `POST /api/users/:username/ban` (admin only), independent of the 3-warning flow |
 | Subscriptions (follow) + email on new recipe | ✅ | |
-| Built-in 1:1 chat | ✅ | Socket.io real-time + REST fallback/history |
-| Multi-language UI (Hindi, Mandarin, Russian, Spanish, French) | 🟡 | UI chrome translated via static dictionaries; **recipe content itself is not machine-translated** (would require a paid Google Translate API call per view) — explicit scope decision, not a bug |
-| Modern UI (sliders, buttons, interactive filters) | 🟡 | See frontend section below |
+| Built-in 1:1 chat | ✅ | Socket.io real-time (HTTP long-polling transport; see note below) + REST fallback/history |
+| Multi-language UI (Hindi, Mandarin, Russian, Spanish, French) | ✅ | UI chrome translated via static dictionaries (`frontend/messages/*.json`), switchable live from the header; **recipe content itself is not machine-translated** (would require a paid Google Translate API call per view) — explicit scope decision, not a bug |
+| Modern UI (sliders, buttons, interactive filters) | ✅ | COOKify cream/terracotta brand palette, Fraunces/Inter font pairing, dual-thumb range sliders for cost/time/calories, chip inputs for ingredients/utensils, card-based recipe grid |
 | Saved/bookmarked recipes | ✅ | Extra, from the wireframe's profile page |
 | Group chat | ⬜ | Out of scope — 1:1 only, per the 2-day budget |
 | Automated tests | ✅ | Password rules, NSFW detection, search-filter coercion, and a full auth→recipe→search→rating→ban integration test (`backend/src/app.integration.test.ts`) |
 
 ## Architecture notes
 
-- **Auth**: JWT access token (15 min) in an httpOnly cookie + a device-bound, rotating refresh token (30 days) — this is the "remember this device" mechanism. Passwords and 2FA codes are bcrypt-hashed; refresh tokens are SHA-256-hashed (needs to be looked up deterministically) and also carried as a signed JWT so a leaked DB row alone can't forge a session.
+- **Auth**: JWT access token (15 min) in an httpOnly cookie + a device-bound, rotating refresh token (30 days) — this is the "remember this device" mechanism. Passwords and 2FA codes are bcrypt-hashed; refresh tokens are SHA-256-hashed (needs to be looked up deterministically) and also carried as a signed JWT so a leaked DB row alone can't forge a session. The frontend's `apiFetch` wrapper (`frontend/src/lib/api.ts`) transparently calls `/api/auth/refresh` and retries once on a 401, so a user stays signed in across the 15-minute access-token lifetime without re-entering credentials.
 - **Database**: PostgreSQL via Prisma 7 (driver-adapter based — see `backend/src/lib/prisma.ts`). Schema in `backend/prisma/schema.prisma` normalizes the brief's ER diagram into proper join tables for ingredients/utensils (enabling the "what can I cook" filters) and adds tables for devices, 2FA codes, warnings, follows, notifications, chat, and saved recipes.
 - **Moderation**: `leo-profanity` flags NSFW comments before they're ever persisted as visible; 3 flags bans the account and cascades a soft-removal of their public content (not a hard delete, so there's still an audit trail).
 - **Email**: all transactional email goes through `backend/src/lib/mailer.ts`, which auto-provisions an Ethereal test account if no real SMTP credentials are configured — genuinely sent, nothing mocked out, just viewable without a real inbox.
-- **Real-time chat**: Socket.io server in `backend/src/sockets/chat.socket.ts`, authenticated via the same access-token cookie used by REST; falls back to `auth.token` for non-browser clients.
+- **Real-time chat**: Socket.io server in `backend/src/sockets/chat.socket.ts`, authenticated via the same access-token cookie used by REST (parsed with the `cookie` package's v2 `parseCookie` API); falls back to `auth.token` for non-browser clients. The frontend client (`frontend/src/lib/socket.ts`) is pinned to the HTTP long-polling transport (`upgrade: false`) rather than upgrading to raw WebSockets, since some sandboxed/proxied network environments silently drop the WS upgrade handshake and leave the socket disconnected instead of falling back gracefully; polling is slightly higher latency but reliable everywhere.
+- **i18n**: `next-intl` with a cookie-based locale (no `[locale]` URL segment, since this app's data is all auth-gated anyway) — see `frontend/src/i18n/`. The header's language switcher calls a server action that sets the cookie and refreshes the page.
+- **Frontend data fetching**: pages are client components that call the Express API directly via `fetch` with `credentials: "include"`, rather than proxying through Next.js server components/route handlers — simplest option for a 2-day build given the backend already owns all auth/session state via cookies.
 
 ## Known limitations (documented, not accidental)
 
 - Deployment target is **local only** — no cloud hosting, CDN, or production email/SMS provider is configured.
 - An already-issued 15-minute access token for a user who gets banned mid-session remains valid until it expires (their refresh token and all other sessions are revoked immediately; only the current access token has a short natural lifetime).
 - Recipe content (titles/instructions) is not machine-translated — only static UI strings are.
+- Chat real-time delivery uses long-polling rather than WebSocket upgrade (see Architecture notes above) — functionally equivalent, just marginally higher latency per message.

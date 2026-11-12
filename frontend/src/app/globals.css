@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/*
+ * COOKify brand palette - warm, editorial, food-forward. Matches the
+ * cream/terracotta wireframe mockups from the brief rather than a generic
+ * blue/white SaaS look. Dark-mode is intentionally not auto-enabled: the
+ * brand is designed around a warm, light palette.
+ */
+@theme {
+  --color-cream: #fbf4e8;
+  --color-cream-dark: #f1e4cf;
+  --color-ink: #2b2420;
+  --color-ink-soft: #6b5f54;
+  --color-terracotta: #d9622b;
+  --color-terracotta-dark: #b94e1f;
+  --color-terracotta-light: #f3d9c6;
+  --color-peach: #f6a35c;
+  --color-sage: #6b8f71;
+  --color-sage-light: #e3ecdf;
+  --color-berry: #c1486b;
+  --color-berry-light: #f6dce3;
+
+  --font-heading: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+}
+
+:root {
+  --background: var(--color-cream);
+  --foreground: var(--color-ink);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), ui-serif, Georgia, serif;
+}
+
+/* Dual-thumb range slider: only the draggable thumb should catch pointer
+   events, since the track itself is set to pointer-events:none so the two
+   overlapping sliders don't block each other. */
+.range-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-terracotta-dark);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-terracotta-dark);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
