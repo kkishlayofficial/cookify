@@ -1,0 +1,353 @@
+// COOKify database schema
+// Expands the brief's ER diagram (User / User_Preference / Recipe / Recipe_Category / Recipe_Rating)
+// into a normalized relational schema. See /README.md for the feature-to-table mapping.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
+enum DietaryType {
+  VEGAN
+  VEGETARIAN
+  EGGETARIAN
+  PESCETARIAN
+  JAIN
+  NON_VEGETARIAN
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum CommentStatus {
+  VISIBLE
+  BLOCKED_NSFW
+}
+
+enum TwoFactorPurpose {
+  LOGIN
+  PASSWORD_RESET
+}
+
+enum NotificationType {
+  NEW_RECIPE_FROM_FOLLOWED
+  WARNING
+  BAN
+  RATING_RECEIVED
+  NEW_COMMENT
+  NEW_MESSAGE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  username          String     @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  bio               String?
+  avatarUrl         String?
+  age               Int?
+  gender            String?
+  role              Role       @default(USER)
+  status            UserStatus @default(ACTIVE)
+  warningCount      Int        @default(0)
+  twoFactorEnabled  Boolean    @default(false)
+  preferredLanguage String     @default("en")
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  devices          Device[]
+  twoFactorCodes   TwoFactorCode[]
+  preference       UserPreference?
+  recipes          Recipe[]
+  ratings          Rating[]
+  comments         Comment[]
+  warningsReceived Warning[]                 @relation("WarningsReceived")
+  followers        Follow[]                  @relation("Followed")
+  following        Follow[]                  @relation("Follower")
+  notifications    Notification[]
+  conversations    ConversationParticipant[]
+  messagesSent     ChatMessage[]
+  savedRecipes     SavedRecipe[]
+
+  @@index([status])
+}
+
+model Device {
+  id               String    @id @default(uuid())
+  userId           String
+  refreshTokenHash String
+  label            String?
+  lastUsedAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  revokedAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TwoFactorCode {
+  id         String           @id @default(uuid())
+  userId     String
+  codeHash   String
+  purpose    TwoFactorPurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+model UserPreference {
+  userId            String   @id
+  dietaryType       DietaryType?
+  calorieTarget     Int?
+  proteinTarget     Int?
+  maxCookTimeMins   Int?
+  maxCostPerServing Decimal? @db.Decimal(10, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Recipe {
+  id             String      @id @default(uuid())
+  title          String
+  description    String?
+  instructions   Json
+  authorId       String
+  dietaryType    DietaryType
+  cuisineRegion  String?
+  courseType     String?
+  prepTimeMins   Int
+  cookTimeMins   Int
+  totalTimeMins  Int
+  servings       Int         @default(1)
+  costPerServing Decimal     @db.Decimal(10, 2)
+  calories       Int
+  protein        Decimal?    @db.Decimal(6, 2)
+  carbs          Decimal?    @db.Decimal(6, 2)
+  fat            Decimal?    @db.Decimal(6, 2)
+  difficulty     Difficulty  @default(MEDIUM)
+  viewCount      Int         @default(0)
+  popularityScore Float      @default(0)
+  avgRating      Decimal     @default(0) @db.Decimal(3, 2)
+  ratingCount    Int         @default(0)
+  isRemoved      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  author      User               @relation(fields: [authorId], references: [id])
+  media       RecipeMedia[]
+  ingredients RecipeIngredient[]
+  utensils    RecipeUtensil[]
+  ratings     Rating[]
+  comments    Comment[]
+  savedBy     SavedRecipe[]
+
+  @@index([authorId])
+  @@index([dietaryType])
+  @@index([isRemoved])
+  @@index([viewCount])
+  @@index([popularityScore])
+  @@index([totalTimeMins])
+  @@index([calories])
+}
+
+model RecipeMedia {
+  id       String    @id @default(uuid())
+  recipeId String
+  type     MediaType
+  url      String
+  order    Int       @default(0)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+}
+
+model Ingredient {
+  id   String @id @default(uuid())
+  name String @unique
+
+  recipes RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  recipeId     String
+  ingredientId String
+  quantity     String?
+  optional     Boolean @default(false)
+
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@id([recipeId, ingredientId])
+  @@index([ingredientId])
+}
+
+model Utensil {
+  id   String @id @default(uuid())
+  name String @unique
+
+  recipes RecipeUtensil[]
+}
+
+model RecipeUtensil {
+  recipeId  String
+  utensilId String
+
+  recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  utensil Utensil @relation(fields: [utensilId], references: [id])
+
+  @@id([recipeId, utensilId])
+  @@index([utensilId])
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  recipeId  String
+  userId    String
+  stars     Int
+  createdAt DateTime @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId])
+  @@index([recipeId])
+}
+
+model Comment {
+  id        String        @id @default(uuid())
+  recipeId  String
+  userId    String
+  body      String
+  status    CommentStatus @default(VISIBLE)
+  isRemoved Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+  @@index([userId])
+}
+
+model Warning {
+  id              String   @id @default(uuid())
+  userId          String
+  reason          String
+  sourceCommentId String?
+  createdAt       DateTime @default(now())
+
+  user User @relation("WarningsReceived", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Follow {
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+
+  follower User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followed User @relation("Followed", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followedId])
+  @@index([followedId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  payload   Json
+  readAt    DateTime?
+  emailedAt DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String    @id @default(uuid())
+  conversationId String
+  senderId       String
+  body           String
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model DevMail {
+  id         String   @id @default(uuid())
+  to         String
+  subject    String
+  body       String
+  previewUrl String?
+  createdAt  DateTime @default(now())
+}
+
+model SavedRecipe {
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, recipeId])
+  @@index([recipeId])
+}

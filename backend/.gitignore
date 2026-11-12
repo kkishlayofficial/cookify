@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+
+# Locally uploaded recipe media (not committed; stored only for local dev/demo)
+/uploads/*
+!/uploads/.gitkeep

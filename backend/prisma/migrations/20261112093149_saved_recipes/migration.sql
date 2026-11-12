@@ -1,0 +1,17 @@
+-- CreateTable
+CREATE TABLE "SavedRecipe" (
+    "userId" TEXT NOT NULL,
+    "recipeId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SavedRecipe_pkey" PRIMARY KEY ("userId","recipeId")
+);
+
+-- CreateIndex
+CREATE INDEX "SavedRecipe_recipeId_idx" ON "SavedRecipe"("recipeId");
+
+-- AddForeignKey
+ALTER TABLE "SavedRecipe" ADD CONSTRAINT "SavedRecipe_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SavedRecipe" ADD CONSTRAINT "SavedRecipe_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
