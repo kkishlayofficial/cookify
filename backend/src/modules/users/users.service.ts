@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/apiError";
 import { createNotification } from "@/modules/notifications/notifications.service";
+import { RECIPE_CARD_INCLUDE } from "@/modules/recipes/recipes.service";
 
 const PUBLIC_PROFILE_SELECT = {
   id: true,
@@ -11,6 +12,21 @@ const PUBLIC_PROFILE_SELECT = {
   avatarUrl: true,
   createdAt: true,
 } as const;
+
+/** Case-insensitive username/first-name prefix search, used by the chat "new conversation" picker. Excludes the viewer. */
+export async function searchUsers(query: string, viewerId?: string) {
+  if (!query.trim()) return [];
+  return prisma.user.findMany({
+    where: {
+      status: "ACTIVE",
+      id: viewerId ? { not: viewerId } : undefined,
+      OR: [{ username: { contains: query, mode: "insensitive" } }, { firstName: { contains: query, mode: "insensitive" } }],
+    },
+    select: { id: true, username: true, firstName: true, avatarUrl: true },
+    take: 10,
+    orderBy: { username: "asc" },
+  });
+}
 
 export async function getPublicProfile(username: string, viewerId?: string) {
   const user = await prisma.user.findFirst({
@@ -34,7 +50,7 @@ export async function listUserRecipes(username: string) {
   if (!user) throw ApiError.notFound("User not found");
   return prisma.recipe.findMany({
     where: { authorId: user.id, isRemoved: false },
-    include: { media: { orderBy: { order: "asc" } } },
+    include: RECIPE_CARD_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
 }

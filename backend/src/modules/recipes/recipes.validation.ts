@@ -61,5 +61,6 @@ export const searchRecipesSchema = z.object({
 });
 
 export const ratingSchema = z.object({
-  stars: z.coerce.number().int().min(1).max(5),
+  // Half-star increments: 0.5, 1, 1.5, ... 5.
+  stars: z.coerce.number().min(0.5).max(5).multipleOf(0.5),
 });

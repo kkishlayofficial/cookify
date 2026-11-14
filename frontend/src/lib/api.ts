@@ -1,4 +1,17 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+// If NEXT_PUBLIC_API_URL isn't set, derive the backend host from the page's own
+// hostname in the browser (so opening the app via a LAN IP talks to the backend
+// on that same IP instead of "localhost", which would point at the client itself).
+// Server-side (SSR) always falls back to localhost, since the Next.js server runs
+// on the same machine as the backend regardless of what host the browser used.
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:4000`;
+  }
+  return "http://localhost:4000";
+}
+
+export const API_URL = resolveApiUrl();
 
 export class ApiRequestError extends Error {
   readonly status: number;

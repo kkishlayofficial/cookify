@@ -4,6 +4,59 @@ import { createNotification } from "@/modules/notifications/notifications.servic
 
 const BAN_THRESHOLD = 3;
 
+/**
+ * leo-profanity only matches whole tokens against its dictionary (by design,
+ * to avoid false positives like "cumin"/"classic"/"scunthorpe"). That means
+ * common inflected forms of a bad word - "shitting", "fucked", "fuckers" -
+ * slip through whenever the inflected form isn't *also* listed verbatim.
+ *
+ * Rather than falling back to substring matching (which would reintroduce
+ * exactly those false positives), we expand the dictionary with the regular
+ * English inflections (-s/-ed/-ing/-er, including consonant-doubling e.g.
+ * "shit" -> "shitting") of every word already in it. Matching stays
+ * whole-token, so "cumin" etc. remain unaffected.
+ */
+const EXTRA_ROOT_WORDS = ["motherfuck"];
+
+function doubledConsonantForm(word: string): string | null {
+  const vowels = new Set(["a", "e", "i", "o", "u"]);
+  const last = word[word.length - 1];
+  const secondLast = word[word.length - 2];
+  const thirdLast = word[word.length - 3];
+  if (
+    word.length >= 3 &&
+    /^[a-z]$/.test(last) &&
+    !vowels.has(last) &&
+    last !== "w" &&
+    last !== "x" &&
+    last !== "y" &&
+    vowels.has(secondLast) &&
+    !vowels.has(thirdLast)
+  ) {
+    return word + last;
+  }
+  return null;
+}
+
+function generateInflections(word: string): string[] {
+  if (!/^[a-z]+$/.test(word)) return [];
+
+  const variants = new Set<string>([`${word}s`, `${word}ed`, `${word}ing`, `${word}er`, `${word}y`]);
+
+  const doubled = doubledConsonantForm(word);
+  if (doubled) {
+    variants.add(`${doubled}ed`);
+    variants.add(`${doubled}ing`);
+    variants.add(`${doubled}er`);
+  }
+
+  return Array.from(variants);
+}
+
+const baseWords = [...leoProfanity.list(), ...EXTRA_ROOT_WORDS];
+const inflectedWords = baseWords.flatMap(generateInflections);
+leoProfanity.add([...EXTRA_ROOT_WORDS, ...inflectedWords]);
+
 export function isNsfw(text: string): boolean {
   return leoProfanity.check(text);
 }

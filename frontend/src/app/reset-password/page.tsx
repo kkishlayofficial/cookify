@@ -2,14 +2,13 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { PASSWORD_RULES } from "@/lib/passwordRules";
 
 function ResetPasswordForm() {
-  const t = useTranslations("Auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -36,7 +35,7 @@ function ResetPasswordForm() {
 
   return (
     <Card className="p-8">
-      <h1 className="font-heading text-2xl font-semibold">{t("resetPasswordTitle")}</h1>
+      <h1 className="font-heading text-2xl font-semibold">Reset your password</h1>
       {done ? (
         <p className="mt-4 text-sm text-sage">Password updated! Redirecting to login...</p>
       ) : (
@@ -44,14 +43,14 @@ function ResetPasswordForm() {
           {error && <p className="rounded-lg bg-berry-light px-3 py-2 text-sm text-berry">{error}</p>}
           <Input
             type="password"
-            placeholder={t("newPassword")}
+            placeholder="New password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
           />
-          <p className="-mt-2 text-xs text-ink-soft">{t("passwordRules")}</p>
+          <p className="-mt-2 text-xs text-ink-soft">{PASSWORD_RULES}</p>
           <Button type="submit" disabled={submitting || !token}>
-            {t("save")}
+            Save
           </Button>
         </form>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch, apiUrl } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -11,8 +11,8 @@ import type { PublicProfile, Recipe } from "@/lib/types";
 
 export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params);
-  const t = useTranslations("Profile");
   const { user, updateProfile } = useAuth();
+  const router = useRouter();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -44,7 +44,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     } else {
       await apiFetch(`/api/users/${username}/follow`, { method: "POST" });
     }
-    setProfile({ ...profile, isFollowing: !profile.isFollowing });
+    const delta = profile.isFollowing ? -1 : 1;
+    setProfile({
+      ...profile,
+      isFollowing: !profile.isFollowing,
+      _count: { ...profile._count, followers: profile._count.followers + delta },
+    });
   }
 
   async function saveBio() {
@@ -106,13 +111,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
           <div className="mt-3 flex flex-wrap justify-center gap-4 text-sm text-ink-soft sm:justify-start">
             <span>
-              <strong className="text-ink">{profile._count.followers}</strong> {t("followers")}
+              <strong className="text-ink">{profile._count.followers}</strong> Followers
             </span>
             <span>
-              <strong className="text-ink">{profile._count.following}</strong> {t("following")}
+              <strong className="text-ink">{profile._count.following}</strong> Following
             </span>
             <span>
-              <strong className="text-ink">{profile._count.recipes}</strong> {t("uploadedRecipes")}
+              <strong className="text-ink">{profile._count.recipes}</strong> Uploaded recipes
             </span>
           </div>
 
@@ -121,16 +126,21 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               <>
                 {!editingBio && (
                   <Button variant="secondary" onClick={() => setEditingBio(true)}>
-                    {t("editProfile")}
+                    Edit profile
                   </Button>
                 )}
                 <Button variant={user?.twoFactorEnabled ? "primary" : "secondary"} onClick={toggle2fa}>
-                  {t("enable2fa")}: {user?.twoFactorEnabled ? "On" : "Off"}
+                  Enable two-factor authentication: {user?.twoFactorEnabled ? "On" : "Off"}
                 </Button>
               </>
             ) : (
               user && (
-                <Button onClick={toggleFollow}>{profile.isFollowing ? "Unfollow" : "Follow"}</Button>
+                <>
+                  <Button onClick={toggleFollow}>{profile.isFollowing ? "Unfollow" : "Follow"}</Button>
+                  <Button variant="secondary" onClick={() => router.push(`/chat?with=${profile.username}`)}>
+                    Message
+                  </Button>
+                </>
               )
             )}
           </div>
@@ -143,14 +153,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             className={`cursor-pointer border-b-2 px-1 pb-2 text-sm font-medium ${tab === "uploaded" ? "border-terracotta text-terracotta-dark" : "border-transparent text-ink-soft"}`}
             onClick={() => setTab("uploaded")}
           >
-            {t("uploadedRecipes")}
+            Uploaded recipes
           </button>
           {isOwnProfile && (
             <button
               className={`cursor-pointer border-b-2 px-1 pb-2 text-sm font-medium ${tab === "saved" ? "border-terracotta text-terracotta-dark" : "border-transparent text-ink-soft"}`}
               onClick={() => setTab("saved")}
             >
-              {t("savedRecipes")}
+              Saved recipes
             </button>
           )}
         </div>

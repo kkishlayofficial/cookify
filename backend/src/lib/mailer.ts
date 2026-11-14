@@ -50,3 +50,26 @@ export async function sendMail(to: string, subject: string, text: string): Promi
 
   return { previewUrl };
 }
+
+/**
+ * Same as `sendMail`, but never throws. Use this at call sites where the
+ * email is a side effect of an already-successful database write (2FA
+ * codes, password resets, notifications) so a flaky SMTP server can't turn
+ * that successful write into a client-facing 500. The caller decides how to
+ * degrade (e.g. `devMailPreviewUrl: null`, or simply not marking a
+ * notification as emailed).
+ */
+export async function trySendMail(
+  to: string,
+  subject: string,
+  text: string,
+): Promise<{ previewUrl: string | null; delivered: boolean }> {
+  try {
+    const { previewUrl } = await sendMail(to, subject, text);
+    return { previewUrl, delivered: true };
+  } catch (err) {
+    // Deliberately omit `to`/`text` (recipient address + message body) from the log.
+    console.error(`[mailer] Failed to deliver email "${subject}": ${err instanceof Error ? err.message : "unknown error"}`);
+    return { previewUrl: null, delivered: false };
+  }
+}

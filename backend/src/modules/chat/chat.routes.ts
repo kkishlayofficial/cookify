@@ -12,6 +12,11 @@ chatRouter.get("/conversations", requireAuth, async (req: AuthenticatedRequest, 
   res.json({ conversations });
 });
 
+chatRouter.get("/unread-count", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const count = await chatService.getUnreadMessageCount(req.user!.id);
+  res.json({ count });
+});
+
 chatRouter.post("/conversations/with/:username", requireAuth, async (req: AuthenticatedRequest, res) => {
   const conversation = await chatService.getOrCreateConversation(req.user!.id, param(req, "username"));
   res.json({ conversation });
@@ -20,6 +25,11 @@ chatRouter.post("/conversations/with/:username", requireAuth, async (req: Authen
 chatRouter.get("/conversations/:id/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
   const messages = await chatService.listMessages(param(req, "id"), req.user!.id);
   res.json({ messages });
+});
+
+chatRouter.post("/conversations/:id/read", requireAuth, async (req: AuthenticatedRequest, res) => {
+  await chatService.markConversationRead(param(req, "id"), req.user!.id);
+  res.status(204).send();
 });
 
 // Also exposed over REST (in addition to the socket.io "message:send" event) so

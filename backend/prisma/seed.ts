@@ -7,11 +7,25 @@
  * Run with: npm run db:seed
  */
 import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import * as authService from "@/modules/auth/auth.service";
 import * as recipesService from "@/modules/recipes/recipes.service";
 import * as ratingsService from "@/modules/recipes/ratings.service";
 import * as usersService from "@/modules/users/users.service";
+import { solidColorPng } from "@/lib/placeholderImage";
+
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+
+/** Writes a solid-color placeholder cover photo for a seeded recipe (no external image fetch needed). */
+async function addPlaceholderCover(recipeId: string, authorId: string, color: [number, number, number]) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  const filename = `${crypto.randomUUID()}.png`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), solidColorPng(800, 600, color));
+  await recipesService.addRecipeMedia(recipeId, authorId, false, [{ path: filename, mimetype: "image/png" }]);
+}
 
 async function upsertUser(input: {
   email: string;
@@ -109,6 +123,7 @@ async function main() {
       ],
       utensils: ["Pan", "Grill"],
     });
+    await addPlaceholderCover(paneer.id, asha.id, [214, 97, 60]); // tomato-gravy terracotta
 
     const alfredo = await recipesService.createRecipe(marco.id, {
       title: "Classic Chicken Alfredo",
@@ -132,6 +147,7 @@ async function main() {
       ],
       utensils: ["Pot", "Pan"],
     });
+    await addPlaceholderCover(alfredo.id, marco.id, [238, 223, 186]); // creamy parmesan
 
     const stirFry = await recipesService.createRecipe(lin.id, {
       title: "15-Minute Vegan Fried Rice",
@@ -155,6 +171,7 @@ async function main() {
       ],
       utensils: ["Wok"],
     });
+    await addPlaceholderCover(stirFry.id, lin.id, [107, 142, 76]); // stir-fried vegetables green
 
     const eggBhurji = await recipesService.createRecipe(asha.id, {
       title: "Spiced Egg Bhurji",
@@ -173,6 +190,7 @@ async function main() {
       ingredients: [{ name: "Egg", quantity: "4" }, { name: "Onion", quantity: "1" }],
       utensils: ["Pan"],
     });
+    await addPlaceholderCover(eggBhurji.id, asha.id, [240, 196, 74]); // scrambled egg yellow
 
     await ratingsService.rateRecipe(paneer.id, marco.id, 5);
     await ratingsService.rateRecipe(paneer.id, lin.id, 4);

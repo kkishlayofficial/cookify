@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch, apiUrl, ApiRequestError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -9,16 +8,21 @@ import { Textarea } from "@/components/ui/Textarea";
 import type { Comment } from "@/lib/types";
 
 export function CommentSection({ recipeId }: { recipeId: string }) {
-  const t = useTranslations("Recipe");
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ comments: Comment[] }>(`/api/comments/recipe/${recipeId}`).then((res) => setComments(res.comments));
+    apiFetch<{ comments: Comment[] }>(`/api/comments/recipe/${recipeId}`).then((res) => {
+      setComments(res.comments);
+      setLoaded(true);
+    });
   }, [recipeId]);
+
+  if (loaded && comments.length === 0 && !user) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +36,7 @@ export function CommentSection({ recipeId }: { recipeId: string }) {
       setComments((prev) => [res.comment, ...prev]);
       setBody("");
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : t("addComment"));
+      setError(err instanceof ApiRequestError ? err.message : "Add a comment");
     } finally {
       setSubmitting(false);
     }
@@ -40,7 +44,7 @@ export function CommentSection({ recipeId }: { recipeId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="font-heading text-xl font-semibold">{t("comments")}</h2>
+      <h2 className="font-heading text-xl font-semibold">Comments</h2>
 
       {user && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
@@ -48,12 +52,12 @@ export function CommentSection({ recipeId }: { recipeId: string }) {
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder={t("addComment")}
+            placeholder="Add a comment"
             rows={2}
             required
           />
           <Button type="submit" disabled={submitting} className="self-end">
-            {t("postComment")}
+            Post comment
           </Button>
         </form>
       )}

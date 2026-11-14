@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export default function ForgotPasswordPage() {
-  const t = useTranslations("Auth");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState<string | null | false>(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +32,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="mx-auto max-w-md">
       <Card className="p-8">
-        <h1 className="font-heading text-2xl font-semibold">{t("forgotPassword")}</h1>
+        <h1 className="font-heading text-2xl font-semibold">Forgot password?</h1>
         {sent !== false ? (
           <div className="mt-4 flex flex-col gap-3">
             <p className="text-sm text-ink-soft">
@@ -49,9 +47,9 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
             {error && <p className="rounded-lg bg-berry-light px-3 py-2 text-sm text-berry">{error}</p>}
-            <Input type="email" placeholder={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Button type="submit" disabled={submitting}>
-              {t("sendResetLink")}
+              Send reset link
             </Button>
           </form>
         )}

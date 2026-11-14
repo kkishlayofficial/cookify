@@ -9,9 +9,9 @@ import { createRecipeSchema, ratingSchema, searchRecipesSchema, updateRecipeSche
 
 export const recipesRouter = Router();
 
-recipesRouter.get("/", validate({ query: searchRecipesSchema }), async (req, res) => {
+recipesRouter.get("/", optionalAuth, validate({ query: searchRecipesSchema }), async (req: AuthenticatedRequest, res) => {
   const query = getValidatedQuery<Parameters<typeof recipesService.searchRecipes>[0]>(req);
-  const result = await recipesService.searchRecipes(query);
+  const result = await recipesService.searchRecipes(query, req.user?.id);
   res.json(result);
 });
 

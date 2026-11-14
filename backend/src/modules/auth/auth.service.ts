@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/apiError";
 import { compareSecret, hashSecret } from "@/lib/hash";
 import { generateNumericCode, generateOpaqueToken, sha256 } from "@/lib/tokens";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "@/lib/jwt";
-import { sendMail } from "@/lib/mailer";
+import { trySendMail } from "@/lib/mailer";
 import type { z } from "zod";
 import type { loginSchema, signupSchema } from "@/modules/auth/auth.validation";
 
@@ -86,7 +86,9 @@ export async function login(input: LoginInput) {
         expiresAt: new Date(Date.now() + LOGIN_CODE_TTL_MS),
       },
     });
-    const { previewUrl } = await sendMail(
+    // The TwoFactorCode row above is already committed, so a flaky mail server
+    // degrades to a null preview URL rather than failing the whole login request.
+    const { previewUrl } = await trySendMail(
       user.email,
       "Your COOKify login code",
       `Your 2FA login code is ${code}. It expires in 10 minutes.`,
@@ -189,7 +191,9 @@ export async function forgotPassword(email: string) {
   });
 
   const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-  const { previewUrl } = await sendMail(
+  // The reset token row above is already committed, so a flaky mail server
+  // degrades to a null preview URL rather than failing the whole request.
+  const { previewUrl } = await trySendMail(
     user.email,
     "Reset your COOKify password",
     `Reset your password using this link (valid for 1 hour): ${resetLink}`,

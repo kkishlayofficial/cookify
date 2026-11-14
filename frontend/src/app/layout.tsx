@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale } from "next-intl/server";
 import { AuthProvider } from "@/contexts/auth-context";
+import { RealtimeProvider } from "@/contexts/realtime-context";
+import { getServerUser } from "@/lib/session.server";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import "./globals.css";
@@ -24,18 +24,18 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const locale = await getLocale();
+  const initialUser = await getServerUser();
 
   return (
-    <html lang={locale} className={`${fraunces.variable} ${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${fraunces.variable} ${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-cream text-ink">
-        <NextIntlClientProvider>
-          <AuthProvider>
+        <AuthProvider initialUser={initialUser}>
+          <RealtimeProvider>
             <Header />
             <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
             <Footer />
-          </AuthProvider>
-        </NextIntlClientProvider>
+          </RealtimeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

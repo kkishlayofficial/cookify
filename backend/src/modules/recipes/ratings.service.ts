@@ -14,9 +14,10 @@ export async function rateRecipe(recipeId: string, userId: string, stars: number
 
   const aggregate = await prisma.rating.aggregate({ where: { recipeId }, _avg: { stars: true }, _count: true });
   const avgRating = aggregate._avg.stars ?? 0;
+  const ratingCount = aggregate._count;
   await prisma.recipe.update({
     where: { id: recipeId },
-    data: { avgRating, ratingCount: aggregate._count },
+    data: { avgRating, ratingCount },
   });
 
   if (recipe.authorId !== userId) {

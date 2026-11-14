@@ -2,13 +2,13 @@
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { apiFetch, apiUrl, ApiRequestError } from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { TagInput } from "@/components/ui/TagInput";
+import { DIETARY_LABELS } from "@/lib/dietary";
 import type { DietaryType, Difficulty, Recipe } from "@/lib/types";
 
 type IngredientRow = { name: string; quantity: string; optional: boolean };
@@ -78,7 +78,6 @@ function recipeToForm(recipe: Recipe): FormState {
 }
 
 export function RecipeForm({ recipe }: { recipe?: Recipe }) {
-  const t = useTranslations();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,13 +156,13 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
       {error && <p className="rounded-lg bg-berry-light px-3 py-2 text-sm text-berry">{error}</p>}
 
       <Input
-        placeholder={t("Upload.recipeTitle")}
+        placeholder="Recipe title"
         value={form.title}
         onChange={(e) => update("title", e.target.value)}
         required
       />
       <Textarea
-        placeholder={t("Upload.description")}
+        placeholder="Description"
         value={form.description}
         onChange={(e) => update("description", e.target.value)}
         rows={3}
@@ -173,7 +172,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
         <Select value={form.dietaryType} onChange={(e) => update("dietaryType", e.target.value as DietaryType)}>
           {(["VEGAN", "VEGETARIAN", "EGGETARIAN", "PESCETARIAN", "JAIN", "NON_VEGETARIAN"] as DietaryType[]).map((d) => (
             <option key={d} value={d}>
-              {t(`Dietary.${d}`)}
+              {DIETARY_LABELS[d]}
             </option>
           ))}
         </Select>
@@ -183,25 +182,25 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
           <option value="HARD">Hard</option>
         </Select>
         <Input
-          placeholder={t("Upload.cuisineRegion")}
+          placeholder="Cuisine / region"
           value={form.cuisineRegion}
           onChange={(e) => update("cuisineRegion", e.target.value)}
         />
-        <Input placeholder={t("Upload.courseType")} value={form.courseType} onChange={(e) => update("courseType", e.target.value)} />
+        <Input placeholder="Course type" value={form.courseType} onChange={(e) => update("courseType", e.target.value)} />
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          {t("Recipe.prepTime")}
+          Prep time
           <Input type="number" min={0} value={form.prepTimeMins} onChange={(e) => update("prepTimeMins", Number(e.target.value))} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          {t("Recipe.cookTime")}
+          Cook time
           <Input type="number" min={0} value={form.cookTimeMins} onChange={(e) => update("cookTimeMins", Number(e.target.value))} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          {t("Upload.servings")}
+          Servings
           <Input type="number" min={1} value={form.servings} onChange={(e) => update("servings", Number(e.target.value))} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          {t("Recipe.cost")}
+          Cost per serving
           <Input
             type="number"
             min={0}
@@ -211,7 +210,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          {t("Common.calories")}
+          cal
           <Input type="number" min={0} value={form.calories} onChange={(e) => update("calories", Number(e.target.value))} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
@@ -229,7 +228,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-ink-soft">{t("Recipe.ingredients")}</label>
+        <label className="mb-1.5 block text-sm font-medium text-ink-soft">Ingredients</label>
         <div className="flex flex-col gap-2">
           {form.ingredients.map((ing, i) => (
             <div key={i} className="flex gap-2">
@@ -261,12 +260,12 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-ink-soft">{t("Recipe.utensils")}</label>
+        <label className="mb-1.5 block text-sm font-medium text-ink-soft">Utensils</label>
         <TagInput value={form.utensils} onChange={(v) => update("utensils", v)} placeholder="Add utensil and press Enter" />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-ink-soft">{t("Recipe.instructions")}</label>
+        <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instructions</label>
         <div className="flex flex-col gap-2">
           {form.instructions.map((step, i) => (
             <div key={i} className="flex items-start gap-2">
@@ -282,7 +281,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
           className="mt-2 cursor-pointer text-sm font-medium text-terracotta-dark"
           onClick={() => update("instructions", [...form.instructions, ""])}
         >
-          + {t("Upload.addStep")}
+          + Add step
         </button>
       </div>
 
@@ -297,7 +296,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
             setFiles(Array.from(e.dataTransfer.files));
           }}
         >
-          {t("Upload.addMedia")}
+          Drag and drop photos or videos, or click to upload
           <input ref={fileInputRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
         </div>
         {files.length > 0 && <p className="mt-2 text-xs text-ink-soft">{files.length} file(s) selected</p>}
@@ -308,7 +307,7 @@ export function RecipeForm({ recipe }: { recipe?: Recipe }) {
       </div>
 
       <Button type="submit" disabled={submitting} className="self-start">
-        {t("Upload.publish")}
+        Publish recipe
       </Button>
     </form>
   );

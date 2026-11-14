@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "@/lib/apiError";
 import { verifyAccessToken } from "@/lib/jwt";
+import { assertAccountActive } from "@/lib/authz";
 
 export type AuthenticatedRequest = Request & {
   user?: { id: string; role: "USER" | "ADMIN" };
@@ -12,16 +13,28 @@ function extractToken(req: Request): string | undefined {
   return (req as Request & { cookies?: Record<string, string> }).cookies?.accessToken;
 }
 
-export function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+/**
+ * Verifies the access token AND re-checks the account's live status in the
+ * database, so a ban takes effect on the very next request instead of
+ * waiting for the (up to 15-minute) access token to expire.
+ */
+export async function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) return next(ApiError.unauthorized("Authentication required", "NO_TOKEN"));
 
+  let userId: string;
   try {
-    const payload = verifyAccessToken(token);
-    req.user = { id: payload.sub, role: payload.role };
-    next();
+    userId = verifyAccessToken(token).sub;
   } catch {
-    next(ApiError.unauthorized("Invalid or expired access token", "TOKEN_INVALID"));
+    return next(ApiError.unauthorized("Invalid or expired access token", "TOKEN_INVALID"));
+  }
+
+  try {
+    const account = await assertAccountActive(userId);
+    req.user = { id: account.id, role: account.role };
+    next();
+  } catch (err) {
+    next(err);
   }
 }
 

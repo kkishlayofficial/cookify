@@ -155,7 +155,6 @@ model Recipe {
   fat            Decimal?    @db.Decimal(6, 2)
   difficulty     Difficulty  @default(MEDIUM)
   viewCount      Int         @default(0)
-  popularityScore Float      @default(0)
   avgRating      Decimal     @default(0) @db.Decimal(3, 2)
   ratingCount    Int         @default(0)
   isRemoved      Boolean     @default(false)
@@ -174,7 +173,6 @@ model Recipe {
   @@index([dietaryType])
   @@index([isRemoved])
   @@index([viewCount])
-  @@index([popularityScore])
   @@index([totalTimeMins])
   @@index([calories])
 }
@@ -233,7 +231,7 @@ model Rating {
   id        String   @id @default(uuid())
   recipeId  String
   userId    String
-  stars     Int
+  stars     Decimal  @db.Decimal(2, 1)
   createdAt DateTime @default(now())
 
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)

@@ -8,7 +8,7 @@ type CreateRecipeInput = z.infer<typeof createRecipeSchema>;
 type UpdateRecipeInput = z.infer<typeof updateRecipeSchema>;
 type SearchQuery = z.infer<typeof searchRecipesSchema>;
 
-const RECIPE_CARD_INCLUDE = {
+export const RECIPE_CARD_INCLUDE = {
   author: { select: { id: true, username: true, avatarUrl: true } },
   media: { orderBy: { order: "asc" as const } },
 };
@@ -145,10 +145,22 @@ export async function addRecipeMedia(
   return media;
 }
 
-/** Recency-weighted "trending" score, recalculated whenever a recipe is viewed. */
-function computePopularityScore(viewCount: number, createdAt: Date): number {
+const RATING_WEIGHT = 10;
+
+/**
+ * Recency-weighted "trending" score combining views and ratings. Computed live at
+ * query time (never stored) so it reflects the recipe's current age rather than a
+ * stale snapshot from whenever it was last viewed or rated.
+ */
+export function computePopularityScore(
+  viewCount: number,
+  avgRating: number,
+  ratingCount: number,
+  createdAt: Date,
+): number {
   const ageHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-  return viewCount / Math.pow(ageHours + 2, 1.5);
+  const ratingSignal = avgRating * ratingCount * RATING_WEIGHT;
+  return (viewCount + ratingSignal) / Math.pow(ageHours + 2, 1.5);
 }
 
 export async function getRecipeById(recipeId: string, viewerId?: string) {
@@ -157,17 +169,48 @@ export async function getRecipeById(recipeId: string, viewerId?: string) {
 
   if (viewerId !== recipe.authorId) {
     const viewCount = recipe.viewCount + 1;
-    await prisma.recipe.update({
-      where: { id: recipeId },
-      data: { viewCount, popularityScore: computePopularityScore(viewCount, recipe.createdAt) },
-    });
+    await prisma.recipe.update({ where: { id: recipeId }, data: { viewCount } });
     recipe.viewCount = viewCount;
   }
 
   return recipe;
 }
 
-export async function searchRecipes(query: SearchQuery) {
+/**
+ * Fetches one page of recipes matching `where`. For the "popularity" sort the score
+ * can't be an indexed column (it depends on the current moment), so every matching
+ * row's score is computed live and the page is sliced out of the sorted id list.
+ */
+async function fetchRecipePage(
+  where: import("@/generated/prisma/client").Prisma.RecipeWhereInput,
+  sort: SearchQuery["sort"],
+  skip: number,
+  take: number,
+) {
+  if (take <= 0) return [];
+
+  if (sort !== "popularity") {
+    const orderBy = sort === "rating" ? { avgRating: "desc" as const } : { createdAt: "desc" as const };
+    return prisma.recipe.findMany({ where, include: RECIPE_CARD_INCLUDE, orderBy, skip, take });
+  }
+
+  const candidates = await prisma.recipe.findMany({
+    where,
+    select: { id: true, viewCount: true, avgRating: true, ratingCount: true, createdAt: true },
+  });
+  const pageIds = candidates
+    .map((r) => ({ id: r.id, score: computePopularityScore(r.viewCount, Number(r.avgRating), r.ratingCount, r.createdAt) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(skip, skip + take)
+    .map((r) => r.id);
+  if (!pageIds.length) return [];
+
+  const items = await prisma.recipe.findMany({ where: { id: { in: pageIds } }, include: RECIPE_CARD_INCLUDE });
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return pageIds.map((id) => byId.get(id)!);
+}
+
+export async function searchRecipes(query: SearchQuery, viewerId?: string) {
   const where: import("@/generated/prisma/client").Prisma.RecipeWhereInput = {
     isRemoved: false,
   };
@@ -202,23 +245,42 @@ export async function searchRecipes(query: SearchQuery) {
     where.utensils = { none: { utensil: { name: { notIn: lower } } } };
   }
 
-  const orderBy =
-    query.sort === "popularity"
-      ? { popularityScore: "desc" as const }
-      : query.sort === "rating"
-        ? { avgRating: "desc" as const }
-        : { createdAt: "desc" as const };
+  const followedIds = viewerId
+    ? (await prisma.follow.findMany({ where: { followerId: viewerId }, select: { followedId: true } })).map(
+        (f) => f.followedId,
+      )
+    : [];
 
-  const [total, items] = await Promise.all([
-    prisma.recipe.count({ where }),
-    prisma.recipe.findMany({
-      where,
-      include: RECIPE_CARD_INCLUDE,
-      orderBy,
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
+  if (!followedIds.length) {
+    const [total, items] = await Promise.all([
+      prisma.recipe.count({ where }),
+      fetchRecipePage(where, query.sort, (query.page - 1) * query.pageSize, query.pageSize),
+    ]);
+    return { items, total, page: query.page, pageSize: query.pageSize };
+  }
+
+  // Recommend more posts from accounts the viewer follows: recipes from followed
+  // authors are surfaced first (still respecting the requested sort within each
+  // group), with the rest of the feed filling in after them.
+  const followedWhere = { ...where, authorId: { in: followedIds } };
+  const otherWhere = { ...where, authorId: { notIn: followedIds } };
+
+  const [followedTotal, otherTotal] = await Promise.all([
+    prisma.recipe.count({ where: followedWhere }),
+    prisma.recipe.count({ where: otherWhere }),
+  ]);
+  const total = followedTotal + otherTotal;
+
+  const offset = (query.page - 1) * query.pageSize;
+  const followedSkip = Math.min(offset, followedTotal);
+  const followedTake = Math.max(0, Math.min(query.pageSize, followedTotal - followedSkip));
+  const otherSkip = Math.max(0, offset - followedTotal);
+  const otherTake = query.pageSize - followedTake;
+
+  const [followedItems, otherItems] = await Promise.all([
+    fetchRecipePage(followedWhere, query.sort, followedSkip, followedTake),
+    fetchRecipePage(otherWhere, query.sort, otherSkip, otherTake),
   ]);
 
-  return { items, total, page: query.page, pageSize: query.pageSize };
+  return { items: [...followedItems, ...otherItems], total, page: query.page, pageSize: query.pageSize };
 }

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiRequestError } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +10,6 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
-  const t = useTranslations("Auth");
   const router = useRouter();
   const { login, verifyTwoFactor } = useAuth();
 
@@ -38,7 +36,7 @@ export default function LoginPage() {
         router.push("/");
       }
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : t("loginTitle"));
+      setError(err instanceof ApiRequestError ? err.message : "Welcome back");
     } finally {
       setSubmitting(false);
     }
@@ -53,7 +51,7 @@ export default function LoginPage() {
       await verifyTwoFactor(pendingUserId, code, rememberDevice);
       router.push("/");
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : t("twoFactorTitle"));
+      setError(err instanceof ApiRequestError ? err.message : "Enter your verification code");
     } finally {
       setSubmitting(false);
     }
@@ -64,39 +62,41 @@ export default function LoginPage() {
       <Card className="p-8">
         {!pendingUserId ? (
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <h1 className="font-heading text-2xl font-semibold">{t("loginTitle")}</h1>
+            <h1 className="font-heading text-2xl font-semibold">Welcome back</h1>
             {error && <p className="rounded-lg bg-berry-light px-3 py-2 text-sm text-berry">{error}</p>}
-            <Input type="email" placeholder={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input
               type="password"
-              placeholder={t("password")}
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
             <label className="flex items-center gap-2 text-sm text-ink-soft">
               <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} />
-              {t("rememberDevice")}
+              Remember this device
             </label>
             <Button type="submit" disabled={submitting}>
-              {t("loginButton")}
+              Log in
             </Button>
             <div className="flex justify-between text-sm">
               <Link href="/forgot-password" className="text-terracotta-dark hover:underline">
-                {t("forgotPassword")}
+                Forgot password?
               </Link>
               <span className="text-ink-soft">
-                {t("noAccount")}{" "}
+                Don&apos;t have an account?{" "}
                 <Link href="/signup" className="text-terracotta-dark hover:underline">
-                  {t("signupButton")}
+                  Create account
                 </Link>
               </span>
             </div>
           </form>
         ) : (
           <form onSubmit={handleVerify} className="flex flex-col gap-4">
-            <h1 className="font-heading text-2xl font-semibold">{t("twoFactorTitle")}</h1>
-            <p className="text-sm text-ink-soft">{t("twoFactorHint")}</p>
+            <h1 className="font-heading text-2xl font-semibold">Enter your verification code</h1>
+            <p className="text-sm text-ink-soft">
+              We emailed a 6-digit code to your inbox (check the Dev Mailbox during local testing).
+            </p>
             {devMailPreview && (
               <a href={devMailPreview} target="_blank" rel="noreferrer" className="text-sm text-terracotta-dark underline">
                 View the email (Ethereal preview)
@@ -106,12 +106,12 @@ export default function LoginPage() {
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder={t("verificationCode")}
+              placeholder="Verification code"
               maxLength={6}
               required
             />
             <Button type="submit" disabled={submitting}>
-              {t("verifyButton")}
+              Verify
             </Button>
           </form>
         )}

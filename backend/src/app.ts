@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "node:path";
-import { env } from "@/config/env";
+import { env, isProduction } from "@/config/env";
 import { errorHandler, notFoundHandler } from "@/middleware/errorHandler";
 import { authRouter } from "@/modules/auth/auth.routes";
 import { usersRouter } from "@/modules/users/users.routes";
@@ -14,6 +14,13 @@ import { devMailRouter } from "@/modules/devmail/devmail.routes";
 
 export function createApp() {
   const app = express();
+
+  // Trust exactly one reverse-proxy hop in production (e.g. a load balancer/ingress in
+  // front of this service) so req.ip reflects the real client IP for rate limiting.
+  // Left disabled in dev/test so a client can't spoof X-Forwarded-For to dodge the
+  // limiter when there's no real proxy terminating the connection. Adjust the hop
+  // count if the production topology adds/removes a proxy layer.
+  app.set("trust proxy", isProduction ? 1 : false);
 
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   app.use(express.json({ limit: "2mb" }));

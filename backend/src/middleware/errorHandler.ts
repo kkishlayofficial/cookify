@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import { MulterError } from "multer";
 import { ApiError } from "@/lib/apiError";
 
 export function notFoundHandler(req: Request, res: Response) {
@@ -10,6 +11,10 @@ export function notFoundHandler(req: Request, res: Response) {
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ApiError) {
     return res.status(err.status).json({ error: { message: err.message, code: err.code } });
+  }
+
+  if (err instanceof MulterError) {
+    return res.status(400).json({ error: { message: err.message, code: err.code } });
   }
 
   if (err instanceof ZodError) {

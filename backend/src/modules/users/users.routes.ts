@@ -13,6 +13,11 @@ usersRouter.get("/saved", requireAuth, async (req: AuthenticatedRequest, res) =>
   res.json({ recipes });
 });
 
+usersRouter.get("/search", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const users = await usersService.searchUsers(String(req.query.q ?? ""), req.user!.id);
+  res.json({ users });
+});
+
 usersRouter.post("/avatar", requireAuth, uploadAvatar.single("avatar"), async (req: AuthenticatedRequest, res) => {
   const url = `/uploads/${req.file!.filename}`;
   const user = await prisma.user.update({ where: { id: req.user!.id }, data: { avatarUrl: url } });

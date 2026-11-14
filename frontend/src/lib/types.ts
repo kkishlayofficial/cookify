@@ -108,10 +108,18 @@ export type PublicProfile = {
   _count: { followers: number; following: number; recipes: number };
 };
 
+export type UserSearchResult = {
+  id: string;
+  username: string;
+  firstName?: string | null;
+  avatarUrl?: string | null;
+};
+
 export type Conversation = {
   id: string;
   otherUser: { id: string; username: string; avatarUrl?: string | null } | null;
   lastMessage: { id: string; body: string; createdAt: string; senderId: string } | null;
+  unreadCount: number;
 };
 
 export type ChatMessage = {
@@ -128,6 +136,7 @@ export type RecipeFilters = {
   ingredients: string[];
   utensils: string[];
   dietaryType: DietaryType[];
+  vegOnly: boolean;
   cuisineRegion: string;
   courseType: string;
   costRange: [number, number];
@@ -136,11 +145,14 @@ export type RecipeFilters = {
   sort: SortOption;
 };
 
+export const VEG_DIETARY_TYPES: DietaryType[] = ["VEGAN", "VEGETARIAN", "JAIN"];
+
 export const DEFAULT_FILTERS: RecipeFilters = {
   q: "",
   ingredients: [],
   utensils: [],
   dietaryType: [],
+  vegOnly: false,
   cuisineRegion: "",
   courseType: "",
   costRange: [0, 20],

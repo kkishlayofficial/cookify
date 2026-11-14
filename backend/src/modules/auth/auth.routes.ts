@@ -3,6 +3,13 @@ import * as authService from "@/modules/auth/auth.service";
 import { setAuthCookies, clearAuthCookies } from "@/modules/auth/auth.cookies";
 import { validate } from "@/middleware/validate";
 import { requireAuth, type AuthenticatedRequest } from "@/middleware/auth";
+import {
+  forgotPasswordRateLimiter,
+  loginRateLimiter,
+  resetPasswordRateLimiter,
+  signupRateLimiter,
+  twoFactorRateLimiter,
+} from "@/middleware/rateLimit";
 import { ApiError } from "@/lib/apiError";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,12 +24,12 @@ import { PUBLIC_USER_FIELDS } from "@/modules/auth/auth.service";
 
 export const authRouter = Router();
 
-authRouter.post("/signup", validate({ body: signupSchema }), async (req, res) => {
+authRouter.post("/signup", signupRateLimiter, validate({ body: signupSchema }), async (req, res) => {
   const user = await authService.signup(req.body);
   res.status(201).json({ user });
 });
 
-authRouter.post("/login", validate({ body: loginSchema }), async (req, res) => {
+authRouter.post("/login", loginRateLimiter, validate({ body: loginSchema }), async (req, res) => {
   const result = await authService.login(req.body);
   if (result.twoFactorRequired) {
     return res.status(200).json({
@@ -35,7 +42,7 @@ authRouter.post("/login", validate({ body: loginSchema }), async (req, res) => {
   res.status(200).json({ twoFactorRequired: false, user: result.user });
 });
 
-authRouter.post("/login/verify-2fa", validate({ body: verify2faSchema }), async (req, res) => {
+authRouter.post("/login/verify-2fa", twoFactorRateLimiter, validate({ body: verify2faSchema }), async (req, res) => {
   const { userId, code, rememberDevice, deviceLabel } = req.body;
   const result = await authService.verifyLoginCode(userId, code, rememberDevice, deviceLabel);
   setAuthCookies(res, result);
@@ -56,12 +63,12 @@ authRouter.post("/logout", async (req, res) => {
   res.status(204).send();
 });
 
-authRouter.post("/forgot-password", validate({ body: forgotPasswordSchema }), async (req, res) => {
+authRouter.post("/forgot-password", forgotPasswordRateLimiter, validate({ body: forgotPasswordSchema }), async (req, res) => {
   const result = await authService.forgotPassword(req.body.email);
   res.status(200).json({ message: "If that email exists, a reset link has been sent.", ...result });
 });
 
-authRouter.post("/reset-password", validate({ body: resetPasswordSchema }), async (req, res) => {
+authRouter.post("/reset-password", resetPasswordRateLimiter, validate({ body: resetPasswordSchema }), async (req, res) => {
   await authService.resetPassword(req.body.token, req.body.newPassword);
   res.status(200).json({ message: "Password updated. Please log in again." });
 });

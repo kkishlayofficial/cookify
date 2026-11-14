@@ -65,9 +65,75 @@ describe("COOKify backend integration", () => {
   it("rates the recipe and updates the aggregate", async () => {
     const res = await agent.post(`/api/recipes/${recipeId}/rating`).send({ stars: 4 });
     expect(res.status).toBe(200);
-    expect(res.body.avgRating).toBe(4);
+    expect(Number(res.body.avgRating)).toBe(4);
     expect(res.body.ratingCount).toBe(1);
   });
+
+  it("accepts a half-star rating", async () => {
+    const res = await agent.post(`/api/recipes/${recipeId}/rating`).send({ stars: 4.5 });
+    expect(res.status).toBe(200);
+    expect(Number(res.body.avgRating)).toBe(4.5);
+  });
+
+  it("rejects a rating that isn't a half-star increment", async () => {
+    const res = await agent.post(`/api/recipes/${recipeId}/rating`).send({ stars: 4.2 });
+    expect(res.status).toBe(400);
+  });
+
+  it("recommends more recipes from a followed account and notifies them of the new follower", async () => {
+    const followedEmail = `followed-${runId}@example.com`;
+    const followedUsername = `followed${runId}`;
+    const controlEmail = `control-${runId}@example.com`;
+    const controlUsername = `control${runId}`;
+    const q = `Recommend-Test-${runId}`;
+
+    const followedAgent = request.agent(app);
+    await followedAgent.post("/api/auth/signup").send({ email: followedEmail, username: followedUsername, password });
+    await followedAgent.post("/api/auth/login").send({ email: followedEmail, password });
+    const followedRecipeRes = await followedAgent.post("/api/recipes").send({
+      title: `${q} Followed`,
+      instructions: ["Step one"],
+      dietaryType: "VEGETARIAN",
+      prepTimeMins: 5,
+      cookTimeMins: 5,
+      costPerServing: 1,
+      calories: 100,
+    });
+    const followedRecipeId = followedRecipeRes.body.recipe.id;
+
+    const controlAgent = request.agent(app);
+    await controlAgent.post("/api/auth/signup").send({ email: controlEmail, username: controlUsername, password });
+    await controlAgent.post("/api/auth/login").send({ email: controlEmail, password });
+    const controlRecipeRes = await controlAgent.post("/api/recipes").send({
+      title: `${q} Control`,
+      instructions: ["Step one"],
+      dietaryType: "VEGETARIAN",
+      prepTimeMins: 5,
+      cookTimeMins: 5,
+      costPerServing: 1,
+      calories: 100,
+    });
+    const controlRecipeId = controlRecipeRes.body.recipe.id;
+
+    // Without the follow boost, the more recently created control recipe sorts first.
+    const beforeFollow = await request(app).get("/api/recipes").query({ q });
+    expect(beforeFollow.body.items[0].id).toBe(controlRecipeId);
+
+    const followRes = await agent.post(`/api/users/${followedUsername}/follow`);
+    expect(followRes.status).toBe(204);
+
+    const followedUser = await prisma.user.findUniqueOrThrow({ where: { username: followedUsername } });
+    const notification = await prisma.notification.findFirst({
+      where: { userId: followedUser.id, type: "NEW_RECIPE_FROM_FOLLOWED" },
+    });
+    expect(notification).not.toBeNull();
+    expect((notification?.payload as { event?: string })?.event).toBe("NEW_FOLLOWER");
+
+    // Once followed, that author's recipe is recommended ahead of the newer control recipe.
+    const afterFollow = await agent.get("/api/recipes").query({ q });
+    expect(afterFollow.body.items[0].id).toBe(followedRecipeId);
+    expect(afterFollow.body.items[1].id).toBe(controlRecipeId);
+  }, 30000);
 
   it("blocks an NSFW comment and issues a warning", async () => {
     const res = await agent.post(`/api/comments/recipe/${recipeId}`).send({ body: "this is fucking terrible" });

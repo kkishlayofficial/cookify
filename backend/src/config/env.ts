@@ -9,7 +9,12 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().default(30),
-  FRONTEND_URL: z.string().default("http://localhost:3000"),
+  // Comma-separated list so dev can hit the app via `localhost` and a LAN IP (or
+  // multiple deployed frontends) without editing this on every switch.
+  FRONTEND_URL: z
+    .string()
+    .default("http://localhost:3000")
+    .transform((val) => val.split(",").map((s) => s.trim()).filter(Boolean)),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),

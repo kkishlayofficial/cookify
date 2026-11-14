@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import type { NotificationItem } from "@/lib/types";
@@ -36,7 +35,6 @@ function describe(n: NotificationItem): string {
 }
 
 export default function NotificationsPage() {
-  const t = useTranslations("Notifications");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
@@ -48,11 +46,26 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
   }
 
+  async function markAllRead() {
+    await apiFetch("/api/notifications/read-all", { method: "POST" });
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (n.readAt ? n : { ...n, readAt: now })));
+  }
+
+  const hasUnread = notifications.some((n) => !n.readAt);
+
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="mb-6 font-heading text-3xl font-semibold">{t("title")}</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="font-heading text-3xl font-semibold">Notifications</h1>
+        {hasUnread && (
+          <button onClick={markAllRead} className="cursor-pointer text-sm text-terracotta-dark hover:underline">
+            Mark all as read
+          </button>
+        )}
+      </div>
       {notifications.length === 0 ? (
-        <p className="text-ink-soft">{t("empty")}</p>
+        <p className="text-ink-soft">You&apos;re all caught up.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {notifications.map((n) => (
@@ -66,7 +79,7 @@ export default function NotificationsPage() {
               </div>
               {!n.readAt && (
                 <button onClick={() => markRead(n.id)} className="cursor-pointer text-xs text-terracotta-dark hover:underline">
-                  {t("markRead")}
+                  Mark as read
                 </button>
               )}
             </Card>

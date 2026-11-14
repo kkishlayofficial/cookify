@@ -27,11 +27,15 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<PublicUser | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({ children, initialUser = null }: { children: ReactNode; initialUser?: PublicUser | null }) {
+  // Seeded from the server (see session.server.ts, read in the root layout) so the
+  // first render already reflects the real session instead of a logged-out guess -
+  // that guess is what caused the login UI to flash before the real content showed up.
+  const [user, setUser] = useState<PublicUser | null>(initialUser);
+  const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await apiFetch<{ user: PublicUser }>("/api/auth/me");
       setUser(res.user);
@@ -43,10 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Fetch the current session on mount - standard data-fetching effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh();
-  }, [refresh]);
+    // Silently re-validate against the backend after hydration, in case the access
+    // token expired between the server render and now - without the loading flag,
+    // so an already-correct server-rendered UI never flickers while this resolves.
+    apiFetch<{ user: PublicUser }>("/api/auth/me")
+      .then((res) => setUser(res.user))
+      .catch(() => setUser(null));
+  }, []);
 
   const login = useCallback(async (email: string, password: string, rememberDevice: boolean) => {
     const res = await apiFetch<LoginResult>("/api/auth/login", {

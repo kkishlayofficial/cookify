@@ -1,13 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useRealtime } from "@/contexts/realtime-context";
+import { GoogleTranslateWidget } from "@/components/GoogleTranslateWidget";
+
+function Badge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-cream px-1.5 py-0.5 text-xs font-semibold text-terracotta-dark">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export function Header() {
-  const t = useTranslations("Nav");
   const { user, logout } = useAuth();
+  const { unreadNotifications, unreadMessages } = useRealtime();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
 
   return (
     <header className="bg-terracotta text-cream">
@@ -18,45 +34,47 @@ export function Header() {
 
         <nav className="hidden items-center gap-5 text-sm font-medium sm:flex">
           <Link href="/" className="hover:underline">
-            {t("explore")}
+            Explore Recipes
           </Link>
           {user && (
             <>
               <Link href="/recipes/new" className="hover:underline">
-                {t("upload")}
+                Upload Recipe
               </Link>
-              <Link href="/chat" className="hover:underline">
-                {t("chat")}
+              <Link href="/chat" className="flex items-center hover:underline">
+                Chat
+                <Badge count={unreadMessages} />
               </Link>
-              <Link href="/notifications" className="hover:underline">
-                {t("notifications")}
+              <Link href="/notifications" className="flex items-center hover:underline">
+                Notifications
+                <Badge count={unreadNotifications} />
               </Link>
               <Link href={`/profile/${user.username}`} className="hover:underline">
-                {t("profile")}
+                Profile
               </Link>
             </>
           )}
         </nav>
 
         <div className="flex items-center gap-3">
-          <LanguageSwitcher />
+          <GoogleTranslateWidget />
           {user ? (
             <button
-              onClick={() => logout()}
+              onClick={() => handleLogout()}
               className="cursor-pointer rounded-full border border-cream/50 px-4 py-1.5 text-sm font-medium hover:bg-cream/10"
             >
-              {t("logout")}
+              Log out
             </button>
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/login" className="rounded-full px-3 py-1.5 text-sm font-medium hover:bg-cream/10">
-                {t("login")}
+                Log in
               </Link>
               <Link
                 href="/signup"
                 className="rounded-full bg-cream px-4 py-1.5 text-sm font-medium text-terracotta-dark hover:bg-cream/90"
               >
-                {t("signup")}
+                Sign up
               </Link>
             </div>
           )}
@@ -66,10 +84,16 @@ export function Header() {
       {/* Mobile nav row */}
       {user && (
         <nav className="flex items-center gap-4 overflow-x-auto border-t border-cream/20 px-4 py-2 text-sm font-medium sm:hidden">
-          <Link href="/recipes/new">{t("upload")}</Link>
-          <Link href="/chat">{t("chat")}</Link>
-          <Link href="/notifications">{t("notifications")}</Link>
-          <Link href={`/profile/${user.username}`}>{t("profile")}</Link>
+          <Link href="/recipes/new">Upload Recipe</Link>
+          <Link href="/chat" className="flex items-center">
+            Chat
+            <Badge count={unreadMessages} />
+          </Link>
+          <Link href="/notifications" className="flex items-center">
+            Notifications
+            <Badge count={unreadNotifications} />
+          </Link>
+          <Link href={`/profile/${user.username}`}>Profile</Link>
         </nav>
       )}
     </header>

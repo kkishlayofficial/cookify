@@ -15,7 +15,12 @@ let socket: Socket | null = null;
  */
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(API_URL, { withCredentials: true, transports: ["polling"], upgrade: false });
+    // WebSocket is the primary transport; Socket.IO falls back to long-polling
+    // automatically if the upgrade is rejected by a proxy. Forcing polling-only
+    // was causing connection-pool exhaustion in multi-tab scenarios (browsers
+    // allow ~6 concurrent HTTP/1.1 connections per domain, so 7+ tabs would
+    // queue their poll requests and experience severe message delays).
+    socket = io(API_URL, { withCredentials: true });
   }
   return socket;
 }
