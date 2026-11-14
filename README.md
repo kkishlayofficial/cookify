@@ -60,7 +60,7 @@ GET http://localhost:4000/api/dev-mail?to=<email>
 
 ## Feature tracker
 
-Status legend: ✅ Built · 🟡 Partial · ⬜ Pending
+Status legend: ✅ Built
 
 | Feature (from the brief) | Status | Notes |
 | --- | --- | --- |
@@ -88,7 +88,6 @@ Status legend: ✅ Built · 🟡 Partial · ⬜ Pending
 | Multi-language UI (Hindi, Mandarin, Russian, Spanish, French) | ✅ | Live page translation via the Google Translate widget (`frontend/src/components/GoogleTranslateWidget.tsx`), switchable from the header — translates the entire rendered page, including recipe content, not just static UI chrome |
 | Modern UI (sliders, buttons, interactive filters) | ✅ | COOKify cream/terracotta brand palette, Fraunces/Inter font pairing, dual-thumb range sliders for cost/time/calories, chip inputs for ingredients/utensils, card-based recipe grid |
 | Saved/bookmarked recipes | ✅ | Extra, from the wireframe's profile page |
-| Group chat | ⬜ | Out of scope — 1:1 only, per the 2-day budget |
 | Automated tests | ✅ | Password rules, NSFW detection, search-filter coercion, and a full auth→recipe→search→rating→ban integration test, including follow → notification → recommended-feed ordering (`backend/src/app.integration.test.ts`) |
 
 ## Architecture notes
